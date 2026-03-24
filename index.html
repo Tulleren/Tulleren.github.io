@@ -1,12 +1,133 @@
-```html
-> <!DOCTYPE html>
-> <html>
-> <head>
->     <title>My Data Viz Site</title>
-> </head>
-> <body>
->     <h1>Hello World!</h1>
->     <p>This site will soon contain interactive data visualizations about crime in San Francisco.</p>
-> </body>
-> </html>
-> ```
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SF Crime Signal - Social Data Viz 2026</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #0ea5e9;
+            --card2: #1d4ed8;
+            --text: #f8fafc;
+            --muted: #cbd5e1;
+            --accent: #22d3ee;
+            --border: rgba(148, 163, 184, 0.35);
+            --radius: 16px;
+            --shadow: 0 24px 50px rgba(15, 23, 42, 0.43);
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: 'Inter', 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #020617 0%, #0f172a 100%);
+            color: var(--text);
+        }
+        a { color: var(--accent); text-decoration: none; }
+        a:hover { opacity: 0.9; }
+        header {
+            max-width: 1040px;
+            margin: 0 auto;
+            padding: 2.8rem 1.2rem 1rem;
+            text-align: center;
+        }
+        header h1 { font-size: clamp(1.8rem, 4vw, 3.4rem); margin: 0; }
+        header p.subtitle {
+            margin: 0.9rem auto 1.6rem;
+            max-width: 760px;
+            color: #cbd5e1;
+            font-size: 1.05rem;
+            line-height: 1.5;
+        }
+        .introduction {
+            max-width: 900px;
+            margin: 1rem auto 1.8rem;
+            padding: 1.2rem;
+            border-radius: var(--radius);
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--border);
+        }
+        .introduction h2 {
+            margin-top: 0;
+            color: #f1f5f9;
+            font-size: 1.35rem;
+        }
+        .introduction p { margin: 0.7rem 0; color: #e2e8f0; }
+        .cta-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+            margin: 1.4rem auto;
+            max-width: 1040px;
+            padding: 0 1rem 1.6rem;
+        }
+        .card {
+            background: #0f172a;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 1.2rem;
+            transition: transform 0.18s ease, box-shadow 0.2s ease;
+            min-height: 180px;
+        }
+        .card:hover { transform: translateY(-3px); box-shadow: 0 30px 65px rgba(15, 23, 42, 0.52); }
+        .card h3 {
+            margin-top: 0;
+            margin-bottom: 0.65rem;
+            color: var(--accent);
+            font-size: 1.12rem;
+        }
+        .card p { margin: 0.45rem 0 0.9rem; color: #dbeafe; line-height: 1.45; }
+        .card a {
+            display: inline-block;
+            margin-top: 0.7rem;
+            font-weight: 600;
+            color: #ecfeff;
+        }
+        .card a::after { content: ' →'; }
+        .footer {
+            text-align: center;
+            padding: 1.6rem 1rem 2.2rem;
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>SF Crime Signal</h1>
+        <p class="subtitle">A crisp interactive data visualization hub for San Francisco police incident patterns (2003–2026).</p>
+    </header>
+
+    <section class="introduction">
+        <h2>Welcome to the dashboard</h2>
+        <p>In this site you’ll explore a complete social data visualization project built from the course assignments in <strong>Social Data Analysis and Visualization 2026</strong>.</p>
+        <p>You can inspect temporal trends, district crime profiles, category breakdowns, and spatial heatmaps that reveal hidden rhythms in San Francisco crime over 20+ years.</p>
+        <p>Each visualization is rooted in the lecture pipeline: data merge, cleaning, category filtering, focused crime analytics, and interactive time/spatial mapping.</p>
+    </section>
+
+    <section class="cta-group">
+        <article class="card">
+            <h3>1) Master timeline analysis</h3>
+            <p>Yearly and weekly trends for major focus crimes (robbery, assault, burglary, etc.) and COVID/seasonal signals.</p>
+            <a href="Plots/index.html#" target="_blank">Open timeline & stats</a>
+        </article>
+
+        <article class="card">
+            <h3>2) District focus ratio</h3>
+            <p>Compare conditional frequencies across police districts, exploring over/under-representation per crime type.</p>
+            <a href="Plots/index.html#" target="_blank">Open district insights</a>
+        </article>
+
+        <article class="card">
+            <h3>3) Hourly pattern and heatmap</h3>
+            <p>Investigate when crimes happen in the day and map the spatial distribution on SF district heatmaps.</p>
+            <a href="Plots/index.html" target="_blank">Open interactive maps</a>
+        </article>
+    </section>
+
+    <footer class="footer">
+        <p>Designed from <em>social_data_viz_2026_group_75</em> assignments using SF Police incident dataset from <strong>2003–2026</strong>.  •  Data source: SF Police Department Incident Reports.</p>
+    </footer>
+</body>
+</html>
