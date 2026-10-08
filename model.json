@@ -1,0 +1,10 @@
+{
+  "classes": [
+    "Common Rust",
+    "Corn Leaf Blight",
+    "Gray Leaf Spot",
+    "Healthy",
+    "Insects damage"
+  ],
+  "img_size": 224
+}

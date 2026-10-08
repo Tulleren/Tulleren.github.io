@@ -1,133 +1,313 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SF Crime Signal - Social Data Viz 2026</title>
-    <style>
-        :root {
-            --bg: #0f172a;
-            --card: #0ea5e9;
-            --card2: #1d4ed8;
-            --text: #f8fafc;
-            --muted: #cbd5e1;
-            --accent: #22d3ee;
-            --border: rgba(148, 163, 184, 0.35);
-            --radius: 16px;
-            --shadow: 0 24px 50px rgba(15, 23, 42, 0.43);
-        }
-        * { box-sizing: border-box; }
-        body {
-            margin: 0;
-            font-family: 'Inter', 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #020617 0%, #0f172a 100%);
-            color: var(--text);
-        }
-        a { color: var(--accent); text-decoration: none; }
-        a:hover { opacity: 0.9; }
-        header {
-            max-width: 1040px;
-            margin: 0 auto;
-            padding: 2.8rem 1.2rem 1rem;
-            text-align: center;
-        }
-        header h1 { font-size: clamp(1.8rem, 4vw, 3.4rem); margin: 0; }
-        header p.subtitle {
-            margin: 0.9rem auto 1.6rem;
-            max-width: 760px;
-            color: #cbd5e1;
-            font-size: 1.05rem;
-            line-height: 1.5;
-        }
-        .introduction {
-            max-width: 900px;
-            margin: 1rem auto 1.8rem;
-            padding: 1.2rem;
-            border-radius: var(--radius);
-            background: rgba(15, 23, 42, 0.8);
-            border: 1px solid var(--border);
-        }
-        .introduction h2 {
-            margin-top: 0;
-            color: #f1f5f9;
-            font-size: 1.35rem;
-        }
-        .introduction p { margin: 0.7rem 0; color: #e2e8f0; }
-        .cta-group {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 1rem;
-            margin: 1.4rem auto;
-            max-width: 1040px;
-            padding: 0 1rem 1.6rem;
-        }
-        .card {
-            background: #0f172a;
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-            padding: 1.2rem;
-            transition: transform 0.18s ease, box-shadow 0.2s ease;
-            min-height: 180px;
-        }
-        .card:hover { transform: translateY(-3px); box-shadow: 0 30px 65px rgba(15, 23, 42, 0.52); }
-        .card h3 {
-            margin-top: 0;
-            margin-bottom: 0.65rem;
-            color: var(--accent);
-            font-size: 1.12rem;
-        }
-        .card p { margin: 0.45rem 0 0.9rem; color: #dbeafe; line-height: 1.45; }
-        .card a {
-            display: inline-block;
-            margin-top: 0.7rem;
-            font-weight: 600;
-            color: #ecfeff;
-        }
-        .card a::after { content: ' →'; }
-        .footer {
-            text-align: center;
-            padding: 1.6rem 1rem 2.2rem;
-            color: #94a3b8;
-            font-size: 0.9rem;
-        }
-    </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maize Leaf Check</title>
+<meta name="description" content="Upload photos of maize leaves and get a disease diagnosis from an EfficientNet-B0 model running in your browser.">
+<style>
+  :root {
+    --bg: #f6f7f2;
+    --card: #ffffff;
+    --text: #1d2a1f;
+    --muted: #5e6b60;
+    --border: #dde3d8;
+    --accent: #2e7d4f;
+    --accent-soft: #e3f1e8;
+    --healthy: #2e7d4f;
+    --sick: #b4442c;
+    --sick-soft: #f8e6e1;
+    --unsure: #9a6b00;
+    --unsure-soft: #fbf0d6;
+    --bar-bg: #edf0ea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121713;
+      --card: #1b221c;
+      --text: #e6ece6;
+      --muted: #9aa79c;
+      --border: #2d382f;
+      --accent: #5fbf85;
+      --accent-soft: #1f3326;
+      --healthy: #5fbf85;
+      --sick: #ef8a70;
+      --sick-soft: #3a231d;
+      --unsure: #e5b84a;
+      --unsure-soft: #382f17;
+      --bar-bg: #263028;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.9rem; margin: 0 0 4px; }
+  .lead { color: var(--muted); margin: 0 0 24px; }
+
+  #drop {
+    display: block;
+    border: 2px dashed var(--border);
+    border-radius: 14px;
+    background: var(--card);
+    padding: 36px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  #drop:hover, #drop.over { border-color: var(--accent); background: var(--accent-soft); }
+  #drop.disabled { opacity: .6; pointer-events: none; }
+  #drop strong { display: block; font-size: 1.1rem; margin-bottom: 4px; }
+  #drop span { color: var(--muted); font-size: .95rem; }
+  #file { display: none; }
+
+  #status { margin: 14px 0 0; color: var(--muted); font-size: .95rem; min-height: 1.5em; }
+  #status.error { color: var(--sick); }
+
+  .toolbar { display: flex; justify-content: space-between; align-items: center; margin: 28px 0 12px; gap: 12px; flex-wrap: wrap; }
+  .toolbar[hidden] { display: none; }
+  .toolbar h2 { font-size: 1.15rem; margin: 0; }
+  button.link {
+    background: none; border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 6px 12px; font: inherit; font-size: .9rem; cursor: pointer;
+  }
+  button.link:hover { border-color: var(--accent); }
+
+  #summary { color: var(--muted); font-size: .95rem; font-weight: normal; }
+  #results { display: grid; gap: 14px; }
+  .card {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 18px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px;
+  }
+  .card img { width: 160px; height: 160px; object-fit: cover; border-radius: 10px; background: var(--bar-bg); }
+  .fname { color: var(--muted); font-size: .85rem; word-break: break-all; margin-bottom: 6px; }
+  .verdict {
+    display: inline-block; font-weight: 600; border-radius: 999px;
+    padding: 3px 12px; margin-bottom: 4px;
+  }
+  .verdict.healthy { color: var(--healthy); background: var(--accent-soft); }
+  .verdict.sick { color: var(--sick); background: var(--sick-soft); }
+  .verdict.unsure { color: var(--unsure); background: var(--unsure-soft); }
+  .conf { font-size: .9rem; color: var(--muted); margin-bottom: 10px; }
+  .hint { font-size: .85rem; color: var(--unsure); margin: -4px 0 10px; }
+  .bar { display: grid; grid-template-columns: 130px 1fr 52px; align-items: center; gap: 8px; font-size: .88rem; margin: 4px 0; }
+  .track { height: 10px; background: var(--bar-bg); border-radius: 5px; overflow: hidden; }
+  .fill { height: 100%; background: var(--accent); border-radius: 5px; }
+  .pct { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+
+  .about { margin-top: 40px; color: var(--muted); font-size: .9rem; border-top: 1px solid var(--border); padding-top: 18px; }
+  .about h3 { color: var(--text); font-size: 1rem; margin: 0 0 6px; }
+  .about ul { padding-left: 20px; margin: 6px 0; }
+
+  @media (max-width: 560px) {
+    h1 { font-size: 1.5rem; }
+    .card { grid-template-columns: 1fr; }
+    .card img { width: 100%; height: 220px; }
+    .bar { grid-template-columns: 110px 1fr 46px; }
+  }
+</style>
 </head>
 <body>
-    <header>
-        <h1>SF Crime Signal</h1>
-        <p class="subtitle">A crisp interactive data visualization hub for San Francisco police incident patterns (2003–2026).</p>
-    </header>
+<main>
+  <h1>Maize Leaf Check</h1>
+  <p class="lead">Upload one or more photos of maize (corn) leaves. A trained model tells you whether each leaf looks healthy or which disease it may have.</p>
 
-    <section class="introduction">
-        <h2>Welcome to the dashboard</h2>
-        <p>In this site you’ll explore a complete social data visualization project built from the course assignments in <strong>Social Data Analysis and Visualization 2026</strong>.</p>
-        <p>You can inspect temporal trends, district crime profiles, category breakdowns, and spatial heatmaps that reveal hidden rhythms in San Francisco crime over 20+ years.</p>
-        <p>Each visualization is rooted in the lecture pipeline: data merge, cleaning, category filtering, focused crime analytics, and interactive time/spatial mapping.</p>
-    </section>
+  <label id="drop" class="disabled" for="file">
+    <strong>Click to choose images or drop them here</strong>
+    <span>JPG, PNG, WEBP, BMP. You can select several at once.</span>
+  </label>
+  <input id="file" type="file" accept="image/*" multiple>
+  <p id="status">Loading model…</p>
 
-    <section class="cta-group">
-        <article class="card">
-            <h3>1) Master timeline analysis</h3>
-            <p>Yearly and weekly trends for major focus crimes (robbery, assault, burglary, etc.) and COVID/seasonal signals.</p>
-            <a href="Plots/index.html#" target="_blank">Open timeline & stats</a>
-        </article>
+  <div class="toolbar" id="toolbar" hidden>
+    <h2>Results <span id="summary"></span></h2>
+    <button class="link" id="clear">Clear results</button>
+  </div>
+  <div id="results"></div>
 
-        <article class="card">
-            <h3>2) District focus ratio</h3>
-            <p>Compare conditional frequencies across police districts, exploring over/under-representation per crime type.</p>
-            <a href="Plots/index.html#" target="_blank">Open district insights</a>
-        </article>
+  <section class="about">
+    <h3>About this tool</h3>
+    <p>The model is an EfficientNet-B0 trained on the Corn Leaf Disease Classification Dataset. It recognises five classes:</p>
+    <ul>
+      <li>Common Rust</li>
+      <li>Corn Leaf Blight</li>
+      <li>Gray Leaf Spot</li>
+      <li>Healthy</li>
+      <li>Insects damage</li>
+    </ul>
+    <p>The model always picks one of these five classes, even for images that are not maize leaves. If its confidence is below 70%, the result is marked <em>uncertain</em> and should be checked manually.</p>
+    <p>Everything runs in your browser. Your images are not uploaded to any server.</p>
+  </section>
+</main>
 
-        <article class="card">
-            <h3>3) Hourly pattern and heatmap</h3>
-            <p>Investigate when crimes happen in the day and map the spatial distribution on SF district heatmaps.</p>
-            <a href="Plots/index.html" target="_blank">Open interactive maps</a>
-        </article>
-    </section>
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js"></script>
+<script>
+// Same settings as the notebook's inference section
+const CONFIDENCE_THRESHOLD = 0.70;
+const TOP_K = 3;
+const MEAN = [0.485, 0.456, 0.406];
+const STD = [0.229, 0.224, 0.225];
 
-    <footer class="footer">
-        <p>Designed from <em>social_data_viz_2026_group_75</em> assignments using SF Police incident dataset from <strong>2003–2026</strong>.  •  Data source: SF Police Department Incident Reports.</p>
-    </footer>
+const drop = document.getElementById("drop");
+const fileInput = document.getElementById("file");
+const statusEl = document.getElementById("status");
+const resultsEl = document.getElementById("results");
+const toolbar = document.getElementById("toolbar");
+const summaryEl = document.getElementById("summary");
+
+let session, classes, imgSize;
+const counts = { healthy: 0, sick: 0, unsure: 0 };
+
+function setStatus(text, isError = false) {
+  statusEl.textContent = text;
+  statusEl.classList.toggle("error", isError);
+}
+
+async function loadModel() {
+  try {
+    const meta = await (await fetch("model.json")).json();
+    classes = meta.classes;
+    imgSize = meta.img_size;
+    session = await ort.InferenceSession.create("model.onnx", { executionProviders: ["wasm"] });
+    drop.classList.remove("disabled");
+    setStatus("Model ready.");
+  } catch (err) {
+    console.error(err);
+    setStatus("Could not load the model: " + err.message, true);
+  }
+}
+
+// Resize to imgSize x imgSize (like transforms.Resize((224, 224))),
+// then ToTensor + Normalize into a 1x3xHxW float tensor
+function toTensor(bitmap) {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = imgSize;
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(bitmap, 0, 0, imgSize, imgSize);
+  const { data } = ctx.getImageData(0, 0, imgSize, imgSize);
+
+  const plane = imgSize * imgSize;
+  const out = new Float32Array(3 * plane);
+  for (let i = 0; i < plane; i++) {
+    for (let c = 0; c < 3; c++) {
+      out[c * plane + i] = (data[i * 4 + c] / 255 - MEAN[c]) / STD[c];
+    }
+  }
+  return new ort.Tensor("float32", out, [1, 3, imgSize, imgSize]);
+}
+
+function softmax(logits) {
+  const max = Math.max(...logits);
+  const exps = logits.map(v => Math.exp(v - max));
+  const sum = exps.reduce((a, b) => a + b, 0);
+  return exps.map(v => v / sum);
+}
+
+async function predict(file) {
+  const bitmap = await createImageBitmap(file);
+  const output = await session.run({ input: toTensor(bitmap) });
+  bitmap.close();
+  const probs = softmax(Array.from(output.logits.data));
+  const top = probs
+    .map((p, i) => [classes[i], p])
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, TOP_K);
+  const [disease, confidence] = top[0];
+  return {
+    disease,
+    confidence,
+    healthy: disease === "Healthy",
+    uncertain: confidence < CONFIDENCE_THRESHOLD,
+    top,
+  };
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+}
+
+function renderCard(file, r) {
+  let kind, verdict;
+  if (r.uncertain) { kind = "unsure"; verdict = "Uncertain"; }
+  else if (r.healthy) { kind = "healthy"; verdict = "Healthy"; }
+  else { kind = "sick"; verdict = "Infected: " + r.disease; }
+  counts[kind]++;
+
+  const card = document.createElement("article");
+  card.className = "card";
+  const img = document.createElement("img");
+  img.src = URL.createObjectURL(file);
+  img.alt = file.name;
+  card.appendChild(img);
+
+  const bars = r.top.map(([name, p]) => `
+    <div class="bar">
+      <span>${escapeHtml(name)}</span>
+      <div class="track"><div class="fill" style="width:${(p * 100).toFixed(1)}%"></div></div>
+      <span class="pct">${(p * 100).toFixed(1)}%</span>
+    </div>`).join("");
+
+  const body = document.createElement("div");
+  body.innerHTML = `
+    <div class="fname">${escapeHtml(file.name)}</div>
+    <div class="verdict ${kind}">${escapeHtml(verdict)}</div>
+    <div class="conf">${(r.confidence * 100).toFixed(1)}% confidence${r.uncertain ? " (best guess: " + escapeHtml(r.disease) + ")" : ""}</div>
+    ${r.uncertain ? '<div class="hint">Check manually, or take a clearer photo of a single leaf.</div>' : ""}
+    ${bars}`;
+  card.appendChild(body);
+  resultsEl.prepend(card);
+}
+
+function updateSummary() {
+  const total = counts.healthy + counts.sick + counts.unsure;
+  summaryEl.textContent = `· ${total} image${total === 1 ? "" : "s"}: ${counts.healthy} healthy, ${counts.sick} infected, ${counts.unsure} uncertain`;
+  toolbar.hidden = total === 0;
+}
+
+async function handleFiles(fileList) {
+  const files = Array.from(fileList).filter(f => f.type.startsWith("image/"));
+  if (!session || files.length === 0) return;
+  drop.classList.add("disabled");
+  setStatus("");
+  for (let i = 0; i < files.length; i++) {
+    setStatus(`Analysing ${i + 1} of ${files.length}: ${files[i].name}`);
+    try {
+      renderCard(files[i], await predict(files[i]));
+      updateSummary();
+    } catch (err) {
+      console.error(err);
+      setStatus(`Could not read ${files[i].name}: ${err.message}`, true);
+    }
+  }
+  if (!statusEl.classList.contains("error")) setStatus(`Done. Analysed ${files.length} image${files.length === 1 ? "" : "s"}.`);
+  drop.classList.remove("disabled");
+  fileInput.value = "";
+}
+
+fileInput.addEventListener("change", e => handleFiles(e.target.files));
+["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", e => handleFiles(e.dataTransfer.files));
+document.getElementById("clear").addEventListener("click", () => {
+  resultsEl.querySelectorAll("img").forEach(img => URL.revokeObjectURL(img.src));
+  resultsEl.innerHTML = "";
+  Object.keys(counts).forEach(k => counts[k] = 0);
+  updateSummary();
+  setStatus("Model ready.");
+});
+
+loadModel();
+</script>
 </body>
 </html>
