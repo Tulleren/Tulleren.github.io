@@ -1,0 +1,21 @@
+{
+  "name": "yolo11n_cls_cds",
+  "classes": [
+    "Gray Leaf Spot",
+    "Northern Leaf Blight",
+    "Northern Leaf Spot"
+  ],
+  "img_size": 224,
+  "resize": "shorter_side_then_center_crop",
+  "mean": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "std": [
+    1.0,
+    1.0,
+    1.0
+  ],
+  "output": "probabilities"
+}

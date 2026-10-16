@@ -1,0 +1,23 @@
+{
+  "name": "yolo11n_det_cds",
+  "task": "detect",
+  "classes": [
+    "Gray Leaf Spot",
+    "Northern Leaf Blight",
+    "Northern Leaf Spot"
+  ],
+  "img_size": 640,
+  "resize": "letterbox",
+  "mean": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "std": [
+    1.0,
+    1.0,
+    1.0
+  ],
+  "output": "boxes_xyxy_score_class",
+  "export_min_score": 0.05
+}

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Maize Leaf Check</title>
-<meta name="description" content="Upload photos of maize leaves and get a disease diagnosis from an EfficientNet-B0 model running in your browser.">
+<meta name="description" content="Check maize leaves for disease with lightweight models running in your browser: photos, videos or live camera.">
 <style>
   :root {
     --bg: #f6f7f2;
@@ -45,269 +45,653 @@
     color: var(--text);
     font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   }
-  main { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
+  main { max-width: 900px; margin: 0 auto; padding: 32px 16px 64px; }
   h1 { font-size: 1.9rem; margin: 0 0 4px; }
+  h2 { font-size: 1.1rem; margin: 0 0 10px; }
   .lead { color: var(--muted); margin: 0 0 24px; }
+  [hidden] { display: none !important; }
 
-  #drop {
-    display: block;
-    border: 2px dashed var(--border);
-    border-radius: 14px;
-    background: var(--card);
-    padding: 36px 16px;
-    text-align: center;
-    cursor: pointer;
-    transition: border-color .15s, background .15s;
+  /* Model choice */
+  .models { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-bottom: 8px; }
+  .model {
+    position: relative; display: block; background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 14px; cursor: pointer;
   }
-  #drop:hover, #drop.over { border-color: var(--accent); background: var(--accent-soft); }
-  #drop.disabled { opacity: .6; pointer-events: none; }
-  #drop strong { display: block; font-size: 1.1rem; margin-bottom: 4px; }
-  #drop span { color: var(--muted); font-size: .95rem; }
-  #file { display: none; }
-
-  #status { margin: 14px 0 0; color: var(--muted); font-size: .95rem; min-height: 1.5em; }
+  .model:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .model input { position: absolute; opacity: 0; }
+  .model input:focus-visible + strong { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .model strong { display: block; }
+  .model small { display: block; color: var(--muted); font-size: .85rem; margin-top: 2px; }
+  .model .tag { font-size: .75rem; color: var(--accent); font-weight: 600; }
+  #status { margin: 8px 0 18px; color: var(--muted); font-size: .92rem; min-height: 1.5em; }
   #status.error { color: var(--sick); }
 
-  .toolbar { display: flex; justify-content: space-between; align-items: center; margin: 28px 0 12px; gap: 12px; flex-wrap: wrap; }
-  .toolbar[hidden] { display: none; }
-  .toolbar h2 { font-size: 1.15rem; margin: 0; }
-  button.link {
-    background: none; border: 1px solid var(--border); color: var(--text);
-    border-radius: 8px; padding: 6px 12px; font: inherit; font-size: .9rem; cursor: pointer;
+  /* Tabs */
+  .tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--border); margin-bottom: 18px; }
+  .tabs button {
+    background: none; border: none; border-bottom: 3px solid transparent; color: var(--muted);
+    font: inherit; font-weight: 600; padding: 8px 14px; cursor: pointer;
   }
-  button.link:hover { border-color: var(--accent); }
+  .tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
 
-  #summary { color: var(--muted); font-size: .95rem; font-weight: normal; }
+  .drop {
+    display: block; border: 2px dashed var(--border); border-radius: 14px; background: var(--card);
+    padding: 32px 16px; text-align: center; cursor: pointer; transition: border-color .15s, background .15s;
+  }
+  .drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-soft); }
+  .drop.disabled { opacity: .6; pointer-events: none; }
+  .drop strong { display: block; font-size: 1.05rem; margin-bottom: 4px; }
+  .drop span { color: var(--muted); font-size: .92rem; }
+  input[type=file] { display: none; }
+
+  button.btn {
+    background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 8px 16px;
+    font: inherit; font-weight: 600; cursor: pointer;
+  }
+  button.btn.secondary { background: none; color: var(--text); border: 1px solid var(--border); font-weight: 500; }
+  button.btn:disabled { opacity: .5; cursor: default; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+
+  .toolbar { display: flex; justify-content: space-between; align-items: center; margin: 24px 0 12px; gap: 12px; flex-wrap: wrap; }
+  .toolbar h2 { margin: 0; }
+  .summary { color: var(--muted); font-size: .92rem; font-weight: normal; }
+
+  /* Result cards */
   #results { display: grid; gap: 14px; }
   .card {
-    display: grid;
-    grid-template-columns: 160px 1fr;
-    gap: 18px;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 14px;
+    display: grid; grid-template-columns: minmax(0, 320px) 1fr; gap: 18px; background: var(--card);
+    border: 1px solid var(--border); border-radius: 14px; padding: 14px;
   }
-  .card img { width: 160px; height: 160px; object-fit: cover; border-radius: 10px; background: var(--bar-bg); }
+  .card canvas { width: 100%; height: auto; border-radius: 10px; background: var(--bar-bg); }
   .fname { color: var(--muted); font-size: .85rem; word-break: break-all; margin-bottom: 6px; }
-  .verdict {
-    display: inline-block; font-weight: 600; border-radius: 999px;
-    padding: 3px 12px; margin-bottom: 4px;
-  }
+  .verdict { display: inline-block; font-weight: 600; border-radius: 999px; padding: 3px 12px; margin-bottom: 4px; }
   .verdict.healthy { color: var(--healthy); background: var(--accent-soft); }
   .verdict.sick { color: var(--sick); background: var(--sick-soft); }
   .verdict.unsure { color: var(--unsure); background: var(--unsure-soft); }
   .conf { font-size: .9rem; color: var(--muted); margin-bottom: 10px; }
   .hint { font-size: .85rem; color: var(--unsure); margin: -4px 0 10px; }
-  .bar { display: grid; grid-template-columns: 130px 1fr 52px; align-items: center; gap: 8px; font-size: .88rem; margin: 4px 0; }
+  .bar { display: grid; grid-template-columns: 150px 1fr 52px; align-items: center; gap: 8px; font-size: .88rem; margin: 4px 0; }
   .track { height: 10px; background: var(--bar-bg); border-radius: 5px; overflow: hidden; }
   .fill { height: 100%; background: var(--accent); border-radius: 5px; }
   .pct { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
 
+  /* Video and camera */
+  .stage { position: relative; background: #000; border-radius: 12px; overflow: hidden; }
+  .stage video { display: block; width: 100%; height: auto; }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .live { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
+  .stats { color: var(--muted); font-size: .88rem; font-variant-numeric: tabular-nums; }
+
   .about { margin-top: 40px; color: var(--muted); font-size: .9rem; border-top: 1px solid var(--border); padding-top: 18px; }
-  .about h3 { color: var(--text); font-size: 1rem; margin: 0 0 6px; }
+  .about h3 { color: var(--text); font-size: 1rem; margin: 18px 0 6px; }
+  .about table { border-collapse: collapse; width: 100%; font-size: .88rem; }
+  .about th, .about td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--border); }
   .about ul { padding-left: 20px; margin: 6px 0; }
 
-  @media (max-width: 560px) {
+  @media (max-width: 600px) {
     h1 { font-size: 1.5rem; }
     .card { grid-template-columns: 1fr; }
-    .card img { width: 100%; height: 220px; }
-    .bar { grid-template-columns: 110px 1fr 46px; }
+    .bar { grid-template-columns: 120px 1fr 46px; }
+    .tabs button { padding: 8px 10px; }
   }
 </style>
 </head>
 <body>
 <main>
   <h1>Maize Leaf Check</h1>
-  <p class="lead">Upload one or more photos of maize (corn) leaves. A trained model tells you whether each leaf looks healthy or which disease it may have.</p>
+  <p class="lead">Check maize (corn) leaves for disease with a photo, a video or your camera. The models are small enough to run on ordinary computers and phones, and everything happens in your browser.</p>
 
-  <label id="drop" class="disabled" for="file">
-    <strong>Click to choose images or drop them here</strong>
-    <span>JPG, PNG, WEBP, BMP. You can select several at once.</span>
-  </label>
-  <input id="file" type="file" accept="image/*" multiple>
+  <h2>Model</h2>
+  <div class="models" id="models"></div>
   <p id="status">Loading model…</p>
 
-  <div class="toolbar" id="toolbar" hidden>
-    <h2>Results <span id="summary"></span></h2>
-    <button class="link" id="clear">Clear results</button>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tab-photos" aria-controls="panel-photos" aria-selected="true">Photos</button>
+    <button role="tab" id="tab-video" aria-controls="panel-video" aria-selected="false">Video</button>
+    <button role="tab" id="tab-camera" aria-controls="panel-camera" aria-selected="false">Camera</button>
   </div>
-  <div id="results"></div>
+
+  <!-- Photos -->
+  <section id="panel-photos" role="tabpanel" aria-labelledby="tab-photos">
+    <label id="drop" class="drop disabled" for="photo-input">
+      <strong>Click to choose photos or drop them here</strong>
+      <span>Best results: one leaf, close up, in daylight. You can select several photos at once.</span>
+    </label>
+    <input id="photo-input" type="file" accept="image/*" multiple>
+    <div class="toolbar" id="toolbar" hidden>
+      <h2>Results <span class="summary" id="summary"></span></h2>
+      <button class="btn secondary" id="clear">Clear results</button>
+    </div>
+    <div id="results"></div>
+  </section>
+
+  <!-- Video -->
+  <section id="panel-video" role="tabpanel" aria-labelledby="tab-video" hidden>
+    <div class="row">
+      <button class="btn" id="video-choose">Choose a video</button>
+      <input id="video-input" type="file" accept="video/*">
+      <span class="stats">The video is analysed while it plays. It never leaves your computer.</span>
+    </div>
+    <div class="stage" id="video-stage" hidden>
+      <video id="video" controls playsinline muted></video>
+      <canvas id="video-overlay"></canvas>
+    </div>
+    <div class="live" id="video-live" hidden>
+      <span class="verdict" id="video-verdict"></span>
+      <span class="stats" id="video-stats"></span>
+    </div>
+    <p class="stats" id="video-summary"></p>
+  </section>
+
+  <!-- Camera -->
+  <section id="panel-camera" role="tabpanel" aria-labelledby="tab-camera" hidden>
+    <div class="row">
+      <button class="btn" id="camera-start">Start camera</button>
+      <button class="btn secondary" id="camera-stop" disabled>Stop</button>
+      <button class="btn secondary" id="camera-switch" hidden>Switch camera</button>
+    </div>
+    <p class="stats" id="camera-hint">Hold a single leaf close to the camera. Your browser will ask for permission first.</p>
+    <div class="stage" id="camera-stage" hidden>
+      <video id="camera" playsinline muted></video>
+      <canvas id="camera-overlay"></canvas>
+    </div>
+    <div class="live" id="camera-live" hidden>
+      <span class="verdict" id="camera-verdict"></span>
+      <span class="stats" id="camera-stats"></span>
+    </div>
+  </section>
 
   <section class="about">
-    <h3>About this tool</h3>
-    <p>The model is an EfficientNet-B0 trained on the Corn Leaf Disease Classification Dataset. It recognises five classes:</p>
+    <h3>About the models</h3>
+    <p>All three models were trained on the same field photos and tested on the same 785 test photos of the CD&amp;S dataset. They know three maize leaf diseases: <strong>Gray Leaf Spot</strong>, <strong>Northern Leaf Blight</strong> and <strong>Northern Leaf Spot</strong>.</p>
+    <table>
+      <tr><th>Model</th><th>What it answers</th><th>Test accuracy</th><th>Size</th></tr>
+      <tr><td>Spot detection (YOLO11n)</td><td>A box around each spot; “No disease found” if there are none</td><td>95.7%</td><td>10 MB</td></tr>
+      <tr><td>Fast classifier (YOLO11n-cls)</td><td>One disease per photo</td><td>98.0%</td><td>6 MB</td></tr>
+      <tr><td>EfficientNet-B0</td><td>One disease per photo</td><td>96.9%</td><td>15 MB</td></tr>
+    </table>
+    <h3>Limitations</h3>
     <ul>
-      <li>Common Rust</li>
-      <li>Corn Leaf Blight</li>
-      <li>Gray Leaf Spot</li>
-      <li>Healthy</li>
-      <li>Insects damage</li>
+      <li>The models only know these three diseases. Other diseases (for example common rust) are forced into one of them or, with spot detection, may give “No disease found”.</li>
+      <li>The two classifiers have no “healthy” answer: they always name a disease. Use spot detection to check whether a leaf looks healthy.</li>
+      <li>The training photos are close-ups of single leaves from fields in Indiana, USA. Photos of whole plants, other light or other regions work less well.</li>
+      <li>Results below the confidence threshold are marked <em>uncertain</em> and should be checked by eye.</li>
     </ul>
-    <p>The model always picks one of these five classes, even for images that are not maize leaves. If its confidence is below 70%, the result is marked <em>uncertain</em> and should be checked manually.</p>
-    <p>Everything runs in your browser. Your images are not uploaded to any server.</p>
+    <h3>Privacy</h3>
+    <p>Everything runs in your browser. Your photos, videos and camera images are not uploaded anywhere.</p>
+    <h3>Dataset</h3>
+    <p>Ahmad, A., Saraswat, D., El Gamal, A., &amp; Johal, G. (2021). <em>CD&amp;S Dataset: Handheld Imagery Dataset Acquired Under Field Conditions for Corn Disease Identification and Severity Estimation.</em> arXiv:2110.12084. <a href="https://osf.io/s6ru5/">osf.io/s6ru5</a></p>
   </section>
 </main>
 
-<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/ort.webgpu.min.js"></script>
 <script>
-// Same settings as the notebook's inference section
-const CONFIDENCE_THRESHOLD = 0.70;
-const TOP_K = 3;
-const MEAN = [0.485, 0.456, 0.406];
-const STD = [0.229, 0.224, 0.225];
+// Same thresholds as src/config.py in the project
+const SETTINGS = {
+  classifierUncertainBelow: 0.70,  // classifiers: below this confidence the result is "uncertain"
+  detectionMinScore: 0.25,         // detection: weaker spots are ignored
+  detectionUncertainBelow: 0.50,   // detection: if the strongest spot scores below this, "uncertain"
+};
+const NO_DISEASE = "No disease found";
+const MODELS = [
+  { id: "yolo11n_det_cds", title: "Spot detection", tag: "YOLO11n · default",
+    text: "Draws a box around each disease spot. Can answer “No disease found”." },
+  { id: "yolo11n_cls_cds", title: "Fast classifier", tag: "YOLO11n-cls",
+    text: "One disease per photo. Smallest and fastest. No “healthy” answer." },
+  { id: "efficientnet_b0_cds", title: "EfficientNet", tag: "EfficientNet-B0",
+    text: "One disease per photo. No “healthy” answer; often says “uncertain” on unusual photos." },
+];
 
-const drop = document.getElementById("drop");
-const fileInput = document.getElementById("file");
-const statusEl = document.getElementById("status");
-const resultsEl = document.getElementById("results");
-const toolbar = document.getElementById("toolbar");
-const summaryEl = document.getElementById("summary");
-
-let session, classes, imgSize;
-const counts = { healthy: 0, sick: 0, unsure: 0 };
+const $ = id => document.getElementById(id);
+const statusEl = $("status");
+const loaded = {};   // model id -> { session, info, inputName, outputName, backend }
+let current = null;  // the selected model
 
 function setStatus(text, isError = false) {
   statusEl.textContent = text;
   statusEl.classList.toggle("error", isError);
 }
 
-async function loadModel() {
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+}
+
+// ---------- Loading models ----------
+
+async function createSession(url, info) {
+  // Try the fast WebGPU engine first; fall back to the standard WebAssembly engine
+  if (navigator.gpu) {
+    try {
+      const session = await ort.InferenceSession.create(url, { executionProviders: ["webgpu", "wasm"] });
+      const dims = [1, 3, info.img_size, info.img_size];
+      await session.run({ [session.inputNames[0]]: new ort.Tensor("float32", new Float32Array(3 * info.img_size ** 2), dims) });
+      return { session, backend: "WebGPU" };
+    } catch (err) {
+      console.warn("WebGPU not usable, using WebAssembly instead:", err);
+    }
+  }
+  return { session: await ort.InferenceSession.create(url, { executionProviders: ["wasm"] }), backend: "WebAssembly" };
+}
+
+async function selectModel(id) {
+  setBusy(true);
   try {
-    const meta = await (await fetch("model.json")).json();
-    classes = meta.classes;
-    imgSize = meta.img_size;
-    session = await ort.InferenceSession.create("model.onnx", { executionProviders: ["wasm"] });
-    drop.classList.remove("disabled");
-    setStatus("Model ready.");
+    if (!loaded[id]) {
+      setStatus("Loading model…");
+      const info = await (await fetch(`models/${id}/model.json`)).json();
+      const { session, backend } = await createSession(`models/${id}/model.onnx`, info);
+      loaded[id] = { id, info, session, backend, inputName: session.inputNames[0], outputName: session.outputNames[0] };
+    }
+    current = loaded[id];
+    const m = MODELS.find(m => m.id === id);
+    setStatus(`${m.title} ready (${current.backend} in your browser).`);
   } catch (err) {
     console.error(err);
     setStatus("Could not load the model: " + err.message, true);
   }
+  setBusy(false);
 }
 
-// Resize to imgSize x imgSize (like transforms.Resize((224, 224))),
-// then ToTensor + Normalize into a 1x3xHxW float tensor
-function toTensor(bitmap) {
-  const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = imgSize;
-  const ctx = canvas.getContext("2d");
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(bitmap, 0, 0, imgSize, imgSize);
-  const { data } = ctx.getImageData(0, 0, imgSize, imgSize);
+function setBusy(busy) {
+  $("drop").classList.toggle("disabled", busy || !current);
+  document.querySelectorAll(".models input").forEach(r => r.disabled = busy);
+}
 
-  const plane = imgSize * imgSize;
+// ---------- Preparing a picture exactly as during training (settings from model.json) ----------
+// The resizing below copies the method of Python's Pillow library (bilinear with smoothing),
+// which the models were trained and tested with. The browser's own resizing gives slightly
+// different pixels, and that was enough to change some answers.
+
+const work = document.createElement("canvas");
+const workCtx = work.getContext("2d", { willReadFrequently: true });
+
+function resizeWeights(inSize, outSize) {
+  const scale = inSize / outSize, filterScale = Math.max(scale, 1), support = filterScale;
+  const list = [];
+  for (let o = 0; o < outSize; o++) {
+    const center = (o + 0.5) * scale;
+    const start = Math.max(Math.trunc(center - support + 0.5), 0);
+    const count = Math.min(Math.trunc(center + support + 0.5), inSize) - start;
+    const w = new Float64Array(count);
+    let total = 0;
+    for (let k = 0; k < count; k++) {
+      const t = Math.abs((k + start - center + 0.5) / filterScale);
+      w[k] = t < 1 ? 1 - t : 0;
+      total += w[k];
+    }
+    for (let k = 0; k < count; k++) w[k] /= total;
+    list.push({ start, w });
+  }
+  return list;
+}
+
+// RGB pixels (3 bytes each) of size w x h -> resized to newW x newH (width first, then height, like Pillow)
+function resizeRGB(px, w, h, newW, newH) {
+  let cur = px, curW = w;
+  if (newW !== w) {
+    const out = new Uint8ClampedArray(newW * h * 3);
+    const weights = resizeWeights(w, newW);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < newW; x++) {
+        const { start, w: wt } = weights[x];
+        let r = 0, g = 0, b = 0;
+        for (let k = 0; k < wt.length; k++) {
+          const i = (y * w + start + k) * 3;
+          r += cur[i] * wt[k]; g += cur[i + 1] * wt[k]; b += cur[i + 2] * wt[k];
+        }
+        const o = (y * newW + x) * 3;
+        out[o] = Math.round(r); out[o + 1] = Math.round(g); out[o + 2] = Math.round(b);
+      }
+    }
+    cur = out; curW = newW;
+  }
+  if (newH !== h) {
+    const out = new Uint8ClampedArray(curW * newH * 3);
+    const weights = resizeWeights(h, newH);
+    for (let y = 0; y < newH; y++) {
+      const { start, w: wt } = weights[y];
+      for (let x = 0; x < curW; x++) {
+        let r = 0, g = 0, b = 0;
+        for (let k = 0; k < wt.length; k++) {
+          const i = ((start + k) * curW + x) * 3;
+          r += cur[i] * wt[k]; g += cur[i + 1] * wt[k]; b += cur[i + 2] * wt[k];
+        }
+        const o = (y * curW + x) * 3;
+        out[o] = Math.round(r); out[o + 1] = Math.round(g); out[o + 2] = Math.round(b);
+      }
+    }
+    cur = out;
+  }
+  return cur;
+}
+
+function sourcePixels(source, width, height) {
+  work.width = width;
+  work.height = height;
+  workCtx.drawImage(source, 0, 0, width, height);
+  const rgba = workCtx.getImageData(0, 0, width, height).data;
+  const rgb = new Uint8ClampedArray(width * height * 3);
+  for (let i = 0, j = 0; i < rgba.length; i += 4, j += 3) {
+    rgb[j] = rgba[i]; rgb[j + 1] = rgba[i + 1]; rgb[j + 2] = rgba[i + 2];
+  }
+  return rgb;
+}
+
+function prepare(source, width, height, info) {
+  const size = info.img_size;
+  const px = sourcePixels(source, width, height);
+  const img = new Uint8ClampedArray(size * size * 3);
+  let letterbox = null;
+  if (info.resize === "letterbox") {               // detection: fit inside size x size, pad with grey
+    const r = Math.min(size / height, size / width);
+    const newW = Math.round(width * r), newH = Math.round(height * r);
+    const left = Math.round((size - newW) / 2 - 0.1), top = Math.round((size - newH) / 2 - 0.1);
+    const small = resizeRGB(px, width, height, newW, newH);
+    img.fill(114);
+    for (let y = 0; y < newH; y++) img.set(small.subarray(y * newW * 3, (y + 1) * newW * 3), ((y + top) * size + left) * 3);
+    letterbox = { r, left, top, width, height };
+  } else if (info.resize === "shorter_side_then_center_crop") {   // YOLO classifier
+    const scale = size / Math.min(width, height);
+    const newW = Math.round(width * scale), newH = Math.round(height * scale);
+    const small = resizeRGB(px, width, height, newW, newH);
+    const left = Math.floor((newW - size) / 2), top = Math.floor((newH - size) / 2);
+    for (let y = 0; y < size; y++) img.set(small.subarray(((y + top) * newW + left) * 3, ((y + top) * newW + left + size) * 3), y * size * 3);
+  } else {                                          // "squash": EfficientNet
+    img.set(resizeRGB(px, width, height, size, size));
+  }
+  const plane = size * size;
   const out = new Float32Array(3 * plane);
   for (let i = 0; i < plane; i++) {
     for (let c = 0; c < 3; c++) {
-      out[c * plane + i] = (data[i * 4 + c] / 255 - MEAN[c]) / STD[c];
+      out[c * plane + i] = (img[i * 3 + c] / 255 - info.mean[c]) / info.std[c];
     }
   }
-  return new ort.Tensor("float32", out, [1, 3, imgSize, imgSize]);
+  return { tensor: new ort.Tensor("float32", out, [1, 3, size, size]), letterbox };
 }
 
-function softmax(logits) {
-  const max = Math.max(...logits);
-  const exps = logits.map(v => Math.exp(v - max));
-  const sum = exps.reduce((a, b) => a + b, 0);
-  return exps.map(v => v / sum);
+// ---------- Running a model and turning its output into an answer ----------
+
+async function analyze(model, source, width, height) {
+  const start = performance.now();
+  const { tensor, letterbox } = prepare(source, width, height, model.info);
+  const output = (await model.session.run({ [model.inputName]: tensor }))[model.outputName].data;
+  const ms = performance.now() - start;
+  const classes = model.info.classes;
+
+  if (model.info.task === "detect") {
+    const boxes = [];
+    for (let i = 0; i < output.length; i += 6) {
+      const score = output[i + 4];
+      if (score < SETTINGS.detectionMinScore) continue;
+      const { r, left, top } = letterbox;
+      boxes.push({
+        x1: Math.max(0, (output[i] - left) / r), y1: Math.max(0, (output[i + 1] - top) / r),
+        x2: Math.min(width, (output[i + 2] - left) / r), y2: Math.min(height, (output[i + 3] - top) / r),
+        label: classes[Math.round(output[i + 5])], score,
+      });
+    }
+    const strongest = Object.fromEntries(classes.map(c => [c, Math.max(0, ...boxes.filter(b => b.label === c).map(b => b.score))]));
+    if (boxes.length === 0) {
+      return { label: NO_DISEASE, confidence: 0, uncertain: false, scores: strongest, boxes, ms };
+    }
+    const totals = Object.fromEntries(classes.map(c => [c, boxes.filter(b => b.label === c).reduce((s, b) => s + b.score, 0)]));
+    const label = classes.reduce((a, b) => totals[b] > totals[a] ? b : a);
+    return { label, confidence: strongest[label], uncertain: strongest[label] < SETTINGS.detectionUncertainBelow,
+             scores: strongest, boxes, ms };
+  }
+
+  let probs = Array.from(output);
+  if (model.info.output === "logits") {            // EfficientNet: convert raw scores to probabilities
+    const max = Math.max(...probs);
+    const exps = probs.map(v => Math.exp(v - max));
+    const sum = exps.reduce((a, b) => a + b, 0);
+    probs = exps.map(v => v / sum);
+  }
+  const best = probs.indexOf(Math.max(...probs));
+  return { label: classes[best], confidence: probs[best], uncertain: probs[best] < SETTINGS.classifierUncertainBelow,
+           scores: Object.fromEntries(classes.map((c, i) => [c, probs[i]])), boxes: [], ms };
 }
 
-async function predict(file) {
-  const bitmap = await createImageBitmap(file);
-  const output = await session.run({ input: toTensor(bitmap) });
-  bitmap.close();
-  const probs = softmax(Array.from(output.logits.data));
-  const top = probs
-    .map((p, i) => [classes[i], p])
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, TOP_K);
-  const [disease, confidence] = top[0];
-  return {
-    disease,
-    confidence,
-    healthy: disease === "Healthy",
-    uncertain: confidence < CONFIDENCE_THRESHOLD,
-    top,
-  };
+function kindOf(result) {
+  if (result.uncertain) return "unsure";
+  return result.label === NO_DISEASE ? "healthy" : "sick";
 }
 
-function escapeHtml(s) {
-  return s.replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+function verdictText(result) {
+  if (result.label === NO_DISEASE) return NO_DISEASE;
+  const spots = result.boxes.length ? ` · ${result.boxes.length} spot${result.boxes.length === 1 ? "" : "s"}` : "";
+  return `${result.uncertain ? "Uncertain: " : ""}${result.label} ${(result.confidence * 100).toFixed(0)}%${spots}`;
 }
 
-function renderCard(file, r) {
-  let kind, verdict;
-  if (r.uncertain) { kind = "unsure"; verdict = "Uncertain"; }
-  else if (r.healthy) { kind = "healthy"; verdict = "Healthy"; }
-  else { kind = "sick"; verdict = "Infected: " + r.disease; }
+const SHORT = { "Gray Leaf Spot": "GLS", "Northern Leaf Blight": "NLB", "Northern Leaf Spot": "NLS" };
+
+function drawBoxes(ctx, boxes, scale) {
+  // Canvas pixels per screen pixel, so labels are readable however large the picture is shown
+  const ratio = ctx.canvas.width / Math.max(1, ctx.canvas.clientWidth || ctx.canvas.width);
+  const line = Math.max(1, Math.round(2 * ratio));
+  const fontSize = Math.round(12 * ratio);
+  ctx.lineWidth = line;
+  ctx.font = `600 ${fontSize}px system-ui, sans-serif`;
+  ctx.textBaseline = "bottom";
+  for (const b of boxes) {
+    const x = b.x1 * scale, y = b.y1 * scale, w = (b.x2 - b.x1) * scale, h = (b.y2 - b.y1) * scale;
+    ctx.strokeStyle = "#ff5a3c";
+    ctx.strokeRect(x, y, w, h);
+    const text = `${SHORT[b.label] || b.label} ${b.score.toFixed(2)}`;
+    const tw = ctx.measureText(text).width + 8;
+    const ty = y > fontSize + 4 ? y : y + fontSize + 4;
+    ctx.fillStyle = "#ff5a3c";
+    ctx.fillRect(x, ty - fontSize - 4, tw, fontSize + 4);
+    ctx.fillStyle = "#fff";
+    ctx.fillText(text, x + 4, ty - 1);
+  }
+}
+
+// ---------- Photos ----------
+
+const counts = { healthy: 0, sick: 0, unsure: 0 };
+
+function renderCard(file, bitmap, result) {
+  const kind = kindOf(result);
   counts[kind]++;
-
   const card = document.createElement("article");
   card.className = "card";
-  const img = document.createElement("img");
-  img.src = URL.createObjectURL(file);
-  img.alt = file.name;
-  card.appendChild(img);
 
-  const bars = r.top.map(([name, p]) => `
+  const canvas = document.createElement("canvas");
+  const scale = Math.min(1, 640 / Math.max(bitmap.width, bitmap.height));
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  card.appendChild(canvas);
+
+  const isDetector = current.info.task === "detect";
+  const scoreLabel = isDetector ? "strongest spot" : "probability";
+  const bars = Object.entries(result.scores).sort((a, b) => b[1] - a[1]).map(([name, p]) => `
     <div class="bar">
       <span>${escapeHtml(name)}</span>
       <div class="track"><div class="fill" style="width:${(p * 100).toFixed(1)}%"></div></div>
-      <span class="pct">${(p * 100).toFixed(1)}%</span>
+      <span class="pct">${(p * 100).toFixed(0)}%</span>
     </div>`).join("");
-
+  const model = MODELS.find(m => m.id === current.id);
   const body = document.createElement("div");
   body.innerHTML = `
-    <div class="fname">${escapeHtml(file.name)}</div>
-    <div class="verdict ${kind}">${escapeHtml(verdict)}</div>
-    <div class="conf">${(r.confidence * 100).toFixed(1)}% confidence${r.uncertain ? " (best guess: " + escapeHtml(r.disease) + ")" : ""}</div>
-    ${r.uncertain ? '<div class="hint">Check manually, or take a clearer photo of a single leaf.</div>' : ""}
+    <div class="fname">${escapeHtml(file.name)} · ${escapeHtml(model.title)} · ${result.ms.toFixed(0)} ms</div>
+    <div class="verdict ${kind}">${escapeHtml(verdictText(result))}</div>
+    <div class="conf">${result.label === NO_DISEASE
+      ? "No spot scored above " + (SETTINGS.detectionMinScore * 100) + "%. The leaf may be healthy, or the disease is not one the model knows."
+      : (result.confidence * 100).toFixed(1) + "% " + scoreLabel}</div>
+    ${result.uncertain ? '<div class="hint">Check by eye, or take a clearer close-up of a single leaf.</div>' : ""}
     ${bars}`;
   card.appendChild(body);
-  resultsEl.prepend(card);
+  $("results").prepend(card);
+  // Draw after the card is on the page, so the label size can follow the shown size
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  drawBoxes(ctx, result.boxes, scale);
 }
 
 function updateSummary() {
   const total = counts.healthy + counts.sick + counts.unsure;
-  summaryEl.textContent = `· ${total} image${total === 1 ? "" : "s"}: ${counts.healthy} healthy, ${counts.sick} infected, ${counts.unsure} uncertain`;
-  toolbar.hidden = total === 0;
+  $("summary").textContent = `· ${total} photo${total === 1 ? "" : "s"}: ${counts.sick} diseased, ${counts.healthy} no disease found, ${counts.unsure} uncertain`;
+  $("toolbar").hidden = total === 0;
 }
 
-async function handleFiles(fileList) {
+async function handlePhotos(fileList) {
   const files = Array.from(fileList).filter(f => f.type.startsWith("image/"));
-  if (!session || files.length === 0) return;
-  drop.classList.add("disabled");
-  setStatus("");
+  if (!current || files.length === 0) return;
+  setBusy(true);
   for (let i = 0; i < files.length; i++) {
     setStatus(`Analysing ${i + 1} of ${files.length}: ${files[i].name}`);
     try {
-      renderCard(files[i], await predict(files[i]));
+      // colorSpaceConversion "none": use the photo's pixel values as they are, like Python did in training
+      const bitmap = await createImageBitmap(files[i], { imageOrientation: "from-image", colorSpaceConversion: "none" });
+      renderCard(files[i], bitmap, await analyze(current, bitmap, bitmap.width, bitmap.height));
+      bitmap.close();
       updateSummary();
     } catch (err) {
       console.error(err);
       setStatus(`Could not read ${files[i].name}: ${err.message}`, true);
     }
   }
-  if (!statusEl.classList.contains("error")) setStatus(`Done. Analysed ${files.length} image${files.length === 1 ? "" : "s"}.`);
-  drop.classList.remove("disabled");
-  fileInput.value = "";
+  if (!statusEl.classList.contains("error")) setStatus(`Done. Analysed ${files.length} photo${files.length === 1 ? "" : "s"}.`);
+  setBusy(false);
+  $("photo-input").value = "";
 }
 
-fileInput.addEventListener("change", e => handleFiles(e.target.files));
-["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
-["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
-drop.addEventListener("drop", e => handleFiles(e.dataTransfer.files));
-document.getElementById("clear").addEventListener("click", () => {
-  resultsEl.querySelectorAll("img").forEach(img => URL.revokeObjectURL(img.src));
-  resultsEl.innerHTML = "";
-  Object.keys(counts).forEach(k => counts[k] = 0);
-  updateSummary();
-  setStatus("Model ready.");
+// ---------- Video and camera: analyse the current frame, draw, repeat ----------
+
+function liveLoop(video, overlay, verdictEl, statsEl, onResult) {
+  let running = true, busy = false, frames = 0, since = performance.now();
+  const ctx = overlay.getContext("2d");
+  async function step() {
+    if (!running) return;
+    if (!busy && current && video.readyState >= 2 && !video.paused && !video.ended && video.videoWidth) {
+      busy = true;
+      try {
+        const model = current;
+        const result = await analyze(model, video, video.videoWidth, video.videoHeight);
+        overlay.width = video.clientWidth;
+        overlay.height = video.clientHeight;
+        ctx.clearRect(0, 0, overlay.width, overlay.height);
+        drawBoxes(ctx, result.boxes, overlay.width / video.videoWidth);
+        verdictEl.className = "verdict " + kindOf(result);
+        verdictEl.textContent = verdictText(result);
+        frames++;
+        const elapsed = (performance.now() - since) / 1000;
+        statsEl.textContent = `${result.ms.toFixed(0)} ms per analysis · ${(frames / elapsed).toFixed(1)} analyses per second · ${model.backend}`;
+        if (elapsed > 5) { frames = 0; since = performance.now(); }
+        if (onResult) onResult(result);
+      } catch (err) {
+        console.error(err);
+        statsEl.textContent = "Analysis failed: " + err.message;
+      }
+      busy = false;
+    }
+    setTimeout(step, 15);   // a timer (not animation frames), so it also keeps going in a background window
+  }
+  step();
+  return () => { running = false; ctx.clearRect(0, 0, overlay.width, overlay.height); };
+}
+
+// Video file
+let stopVideoLoop = null;
+const videoCounts = {};
+$("video-choose").addEventListener("click", () => $("video-input").click());
+$("video-input").addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const video = $("video");
+  if (stopVideoLoop) stopVideoLoop();
+  if (video.src) URL.revokeObjectURL(video.src);
+  Object.keys(videoCounts).forEach(k => delete videoCounts[k]);
+  $("video-summary").textContent = "";
+  video.src = URL.createObjectURL(file);
+  $("video-stage").hidden = false;
+  $("video-live").hidden = false;
+  $("video-verdict").className = "verdict";
+  $("video-verdict").textContent = "Press play";
+  $("video-stats").textContent = file.name;
+  stopVideoLoop = liveLoop(video, $("video-overlay"), $("video-verdict"), $("video-stats"), result => {
+    videoCounts[result.label] = (videoCounts[result.label] || 0) + 1;
+    const total = Object.values(videoCounts).reduce((a, b) => a + b, 0);
+    $("video-summary").textContent = `So far ${total} frames analysed: ` +
+      Object.entries(videoCounts).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${Math.round(100 * n / total)}%`).join(", ");
+  });
+  video.play().catch(() => {});
 });
 
-loadModel();
+// Camera
+let stream = null, stopCameraLoop = null, facing = "environment";
+async function startCamera() {
+  stopCamera();
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    $("camera-hint").textContent = "This browser cannot use the camera here. The page must be opened over https.";
+    return;
+  }
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, width: { ideal: 1280 } }, audio: false });
+  } catch (err) {
+    $("camera-hint").textContent = err.name === "NotAllowedError"
+      ? "Camera permission was refused. Allow the camera in your browser's address bar and try again."
+      : "Could not open a camera: " + err.message;
+    return;
+  }
+  const video = $("camera");
+  video.srcObject = stream;
+  await video.play();
+  $("camera-stage").hidden = false;
+  $("camera-live").hidden = false;
+  $("camera-stop").disabled = false;
+  $("camera-start").disabled = true;
+  $("camera-hint").textContent = "Hold a single leaf close to the camera, in good light.";
+  const cams = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "videoinput");
+  $("camera-switch").hidden = cams.length < 2;
+  stopCameraLoop = liveLoop(video, $("camera-overlay"), $("camera-verdict"), $("camera-stats"));
+}
+function stopCamera() {
+  if (stopCameraLoop) { stopCameraLoop(); stopCameraLoop = null; }
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  $("camera-stage").hidden = true;
+  $("camera-live").hidden = true;
+  $("camera-stop").disabled = true;
+  $("camera-start").disabled = false;
+}
+$("camera-start").addEventListener("click", startCamera);
+$("camera-stop").addEventListener("click", stopCamera);
+$("camera-switch").addEventListener("click", () => { facing = facing === "environment" ? "user" : "environment"; startCamera(); });
+
+// ---------- Page setup ----------
+
+$("models").innerHTML = MODELS.map((m, i) => `
+  <label class="model">
+    <input type="radio" name="model" value="${m.id}" ${i === 0 ? "checked" : ""}>
+    <strong>${escapeHtml(m.title)}</strong>
+    <span class="tag">${escapeHtml(m.tag)}</span>
+    <small>${escapeHtml(m.text)}</small>
+  </label>`).join("");
+document.querySelectorAll(".models input").forEach(r => r.addEventListener("change", () => selectModel(r.value)));
+
+const tabs = ["photos", "video", "camera"];
+tabs.forEach(name => $(`tab-${name}`).addEventListener("click", () => {
+  tabs.forEach(t => {
+    $(`tab-${t}`).setAttribute("aria-selected", String(t === name));
+    $(`panel-${t}`).hidden = t !== name;
+  });
+  if (name !== "camera") stopCamera();
+  if (name !== "video") $("video").pause();
+}));
+
+const drop = $("drop");
+$("photo-input").addEventListener("change", e => handlePhotos(e.target.files));
+["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", e => handlePhotos(e.dataTransfer.files));
+$("clear").addEventListener("click", () => {
+  $("results").innerHTML = "";
+  Object.keys(counts).forEach(k => counts[k] = 0);
+  updateSummary();
+});
+
+selectModel(MODELS[0].id);
 </script>
 </body>
 </html>
